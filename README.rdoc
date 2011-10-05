@@ -1,9 +1,101 @@
 = map_restfully
 
-Description goes here.
+The map_restfully plugin creates a more RESTful controller than the default in Rails. This facilitates 
+applications that are much closer to the architectural style REST, which leads to performance and convention 
+advantages.
+
+== Example
+
+In your routes.rb file, simply add:
+
+  map_restfully :chair
+
+where 'chair' is the name of your resource.
+
+This will automatically provide routes and named path helpers for GETS, POSTS, PUTS, DELETES, GET, POST, PUT, DELETE. 
+The grammatical number corresponds to the url generated and the path helpers.
+
+Using the above example, we have the following.
+*convenience helper*                     \*example paths*                                      \*controller method*
+chair_path(@chair)                       \chair, chair.html, chair/1, chair/1.html             \ChairsController#get
+chair_path(@chair, :method => :post)     \chair, chair.xml, chair/1, chair/1.xml               \ChairsController#post
+chair_path(@chair, :method => :put)      \chair, chair.js, chair/1, chair/1.js                 \ChairsController#put
+chair_path(@chair, :method => :delete)   \chair, chair.html, chair/1, chair/1.html             \ChairsController#delete
+chairs_path(@chairs)                     \chairs, chairs.html, chairs/1,2,3, chairs/1,2,3.html \ChairsController#gets
+chairs_path(@chairs, :method => :post)   \chairs, chairs.xml, chairs/1,2,3, chairs/1,2,3.xml   \ChairsController#posts
+chairs_path(@chairs, :method => :put)    \chairs, chairs.js, chairs/1,2,3, chairs/1,2,3.js     \ChairsController#puts
+chairs_path(@chairs, :method => :delete) \chairs, chairs.html, chairs/1,2,3, chairs/1,2,3.html \ChairsController#deletes
+Note the ‘s’ on the end of the controller method names in the plural case. The above are only examples. The paths take 
+the usual formats .xml, .js, etc. The id number in the singular case and the ids in the plural case are optional. 
+
+
+== Rationale
+
+When Rails began flirting with ‘RESTful’ resources, there wasn’t much RESTful about Rails’ implementation other than 
+an added conversion layer between REST verbs and the default Rails actions. Those actions are Index (formerly List), 
+Show, New, Edit, Create, Update, and Destroy. We take the position that this added conversion layer is both 
+unnecessary and counter-productive.
+
+We have demonstrated that this conversion layer, the current implementation of map.resource, is unnecessary 
+in this plugin. We suggest that the current implementation in Rails is counter-productive, for the reasons elaborated below.
+
+== Breaking the Origin Barrier
+
+RESTful architecture provides scalability and fault-tolerance in a network application. A default Rails 
+implementation overrides this with the response header “Cach-Control: private, max-age=0, must-revalidate.” 
+This tells every node between the server and the client that every request requires the entire page 
+to be sent on each request.
+
+Imagine a situation where the index page to your site fairly static. Rather than sending the header above, 
+the server responds to the root request with “Cach-Control: max-age=28800.” Boom. What was that sound? 
+That was sound of your index page being served so fast that it moved faster than your server can spit 
+the bits out. Let’s call it ‘Breaking the Origin Barrier.’
+
+Your Rails web site now responds much faster, because the client web browser knows not to bother the 
+origin server if 8 hours haven’t passed since the last time you looked at the index page. Client-side 
+caching is the best possible performance solution in applications that transfer state representations 
+across a network.
+
+The next-best performance solution is if an intermediate server caches the web page. You now have that 
+advantage as well. Any caching servers set up between the origin server and the clients requesting that 
+resource (the index page) won’t bother passing the request along and waiting for a response. Instead, 
+they will simply and quickly reply with the cached page.
+
+As you can see, this could drastically decrease your server load and bandwidth needs. This is how HTTP 
+was designed to work. This is one benefit of using a RESTful approach.
+
+To get this caching benefit, you could add ‘expires_in’ to the example above:
+
+  class ChairsController < ApplicationController
+    def gets
+      …code…
+      expires_in 8.hours, :private => false
+    end
+  end
+
+(Gets is the method that corresponds to the Index action in traditional Rails apps.) 
+
+== Tips
+
+Rails typically treated Show, New, and Edit actions as get requests. In our experience, we found that 
+the edit view was always redundant with either the Show or the New view, so we discard it. In many cases, 
+we find that a properly scoped controller would have a form behind HTTP_AUTH (the RESTful alternative to 
+sessions). We also found that the form helpers obviate the New view, since we can just call 
+@record.new_record? in the view if we need to distinguish. So rather than maintain show(), edit(), 
+and new(), we recommend combining edit() and new() into one get.html.* form.
+
+You can distinguish the editable representation of a resource either by the subject of the RESTful 
+sentence (normally the logged-in user), or by another parameter (like appending ?edit=true to the url). 
+In the former case we recommend putting the logged-in views and controllers under a separate namespace 
+in order to make it convenient to disable the caching for those GET requests. In the latter case you 
+can render a different template based on the presence of the edit parameter.
+
+In typical ActiveRecord implementations, the id starts with the integer 1 and increments with each 
+record created. We use the id number 0 to represent a new ActiveRecord instance. Using that convention, 
+we can obviate the separate view and controller method for New.
 
 == Contributing to map_restfully
- 
+
 * Check out the latest master to make sure the feature hasn't been implemented or the bug hasn't been fixed yet
 * Check out the issue tracker to make sure someone already hasn't requested it and/or contributed it
 * Fork the project
@@ -12,8 +104,32 @@ Description goes here.
 * Make sure to add tests for it. This is important so I don't break it in a future version unintentionally.
 * Please try not to mess with the Rakefile, version, or history. If you want to have your own version, or is otherwise necessary, that is fine, but please isolate to its own commit so I can cherry-pick around it.
 
+== Turn Off Session
+
+If you adhere to strick RESTful principles, you can separate your application controller by the subject 
+of the request: “I get the book…” or “Anonymous gets the book…” In this example, you can see that the 
+former case has the subject “I,” which is sometimes stored in the session cookie. You will get a 
+significant performance boost by turning sessions off. If you cannot identify the subject via a URL 
+parameter, then you are probably dealing with an issue of authentication. Consider using HTTP 
+authentication. This will populate your parameters with a ‘user’ and ‘password’ on every request, 
+which is automatically handled by the client web browser.
+
+To turn off sessions, change the following default line in config/environment.rb from:
+
+  config.action_controller.session = {
+    :session_key => '_dummy_session',
+    :secret      => 'someveryveryverylooooooooongrandomstring'
+  }
+
+to:
+
+  config.action_controller.session = false
+
+And remove the following line in ‘app/controllers/application.rb’:
+
+  protect_from_forgery #:secret => 'somerandomstring
+
 == Copyright
 
 Copyright (c) 2011 CLR. See LICENSE.txt for
 further details.
-
