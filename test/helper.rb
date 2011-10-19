@@ -3,7 +3,6 @@ require 'rubygems'
 ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../../Gemfile', __FILE__)
 require 'bundler/setup' if File.exists?(ENV['BUNDLE_GEMFILE'])
 
-gem 'rails', '3.0.9'
 require "action_controller/railtie"
 require "rails/test_unit/railtie"
 require 'rails/test_help'

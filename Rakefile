@@ -15,10 +15,12 @@ Jeweler::Tasks.new do |gem|
   gem.name = "map_restfully"
   gem.homepage = "http://github.com/clr/map_restfully"
   gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.summary = %Q{Provide HTTP-verb style routing to Rails.}
+  gem.description = %Q{Convenience method to provide controller actions that correspond to the HTTP verbs.}
   gem.email = "clr@port49.com"
   gem.authors = ["CLR"]
+  gem.add_dependency 'rails', '~> 3.0.10'
+  gem.add_dependency 'rack-test'
   # dependencies defined in Gemfile
 end
 Jeweler::RubygemsDotOrgTasks.new
